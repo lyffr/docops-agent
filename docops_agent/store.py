@@ -158,11 +158,16 @@ class TicketStore:
         if priority not in {"low", "medium", "high", "urgent"}:
             raise ValueError("ticket priority must be low, medium, high, or urgent")
         ticket = Ticket(title=title, description=description, priority=priority)
+        self.add(ticket)
+        return ticket
+
+    def add(self, ticket: Ticket, *, persist: bool = True) -> None:
         with self._lock:
-            if self.repository is not None:
+            if ticket.id in self._tickets:
+                raise ValueError(f"ticket already exists: {ticket.id}")
+            if persist and self.repository is not None:
                 self.repository.save_ticket(ticket)
             self._tickets[ticket.id] = ticket
-        return ticket
 
     def list(self) -> list[Ticket]:
         with self._lock:

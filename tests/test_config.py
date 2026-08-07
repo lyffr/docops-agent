@@ -20,6 +20,10 @@ class SettingsTests(unittest.TestCase):
             Settings(max_upload_bytes=0)
         with self.assertRaisesRegex(ValueError, "DOCOPS_DATABASE_PATH"):
             Settings(database_path="   ")
+        with self.assertRaisesRegex(ValueError, "DOCOPS_APPROVAL_TTL_SECONDS"):
+            Settings(approval_ttl_seconds=0)
+        with self.assertRaisesRegex(ValueError, "DOCOPS_TRUSTED_HOSTS"):
+            Settings(environment="production", trusted_hosts=("*",))
 
 
 if __name__ == "__main__":

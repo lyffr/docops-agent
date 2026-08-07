@@ -91,12 +91,46 @@ class Ticket:
 
 
 @dataclass(slots=True)
+class Approval:
+    id: str
+    action_type: str
+    title: str
+    description: str
+    priority: str
+    requested_by: str
+    requested_at: str
+    expires_at: str
+    status: str = "pending"
+    resolved_by: str | None = None
+    resolved_at: str | None = None
+    ticket_id: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
+class AuditEvent:
+    id: str
+    event_type: str
+    actor: str
+    resource_type: str
+    resource_id: str
+    details: dict[str, Any]
+    created_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class AgentResult:
     kind: str
     message: str
     requires_approval: bool = False
     answer: Answer | None = None
     ticket: Ticket | None = None
+    approval: Approval | None = None
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)

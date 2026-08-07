@@ -17,3 +17,4 @@ data/uploads/
 data/*.db
 data/*.db-shm
 data/*.db-wal
+backups/

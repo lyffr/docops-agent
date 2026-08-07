@@ -1,25 +1,71 @@
 services:
   api:
     build: .
+    restart: unless-stopped
+    init: true
     ports:
-      - "8000:8000"
+      - "${DOCOPS_BIND_HOST:-127.0.0.1}:${DOCOPS_API_PORT:-8000}:8000"
     env_file:
       - path: .env
         required: false
     environment:
       DOCOPS_DATABASE_PATH: /state/docops.db
+      DOCOPS_TRUSTED_HOSTS: ${DOCOPS_TRUSTED_HOSTS:-localhost,127.0.0.1,api}
     volumes:
       - docops-state:/state
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
   ui:
     build: .
-    command: streamlit run docops_agent/streamlit_app.py --server.address=0.0.0.0
+    restart: unless-stopped
+    init: true
+    command:
+      - streamlit
+      - run
+      - docops_agent/streamlit_app.py
+      - --server.address=0.0.0.0
+      - --server.port=8501
+      - --server.headless=true
+      - --browser.gatherUsageStats=false
     ports:
-      - "8501:8501"
+      - "${DOCOPS_BIND_HOST:-127.0.0.1}:${DOCOPS_UI_PORT:-8501}:8501"
     environment:
       DOCOPS_API_URL: http://api:8000
+      DOCOPS_API_KEY: ${DOCOPS_UI_API_KEY:-}
+      DOCOPS_UI_PASSWORD: ${DOCOPS_UI_PASSWORD:-}
+      HOME: /tmp
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8501/_stcore/health', timeout=3)
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
 
 volumes:
   docops-state:

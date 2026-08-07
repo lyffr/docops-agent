@@ -13,8 +13,13 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - run: pip install -e ".[dev]"
+      - run: pip install --requirement requirements-dev.lock
+      - run: pip install --no-deps --editable .
       - run: ruff check .
       - run: ruff format --check .
       - run: pytest
+      - run: python -m compileall -q docops_agent scripts tests
+      - run: pip check
+      - run: docker compose config --quiet
+      - run: docker build --tag docops-agent:test .
 

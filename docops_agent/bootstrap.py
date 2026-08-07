@@ -38,4 +38,11 @@ def build_agent(settings: Settings | None = None) -> tuple[DocOpsAgent, Knowledg
         top_k=settings.top_k,
         min_evidence_score=settings.min_evidence_score,
     )
-    return DocOpsAgent(rag, TicketStore(repository)), knowledge_base
+    return (
+        DocOpsAgent(
+            rag,
+            TicketStore(repository),
+            approval_ttl_seconds=settings.approval_ttl_seconds,
+        ),
+        knowledge_base,
+    )

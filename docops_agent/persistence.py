@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 from threading import RLock
 from typing import Protocol
 
-from .models import DocumentRecord, ParsedSection, Ticket
+from .models import Approval, AuditEvent, DocumentRecord, ParsedSection, Ticket
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 
 class Repository(Protocol):
@@ -20,6 +21,20 @@ class Repository(Protocol):
     def save_ticket(self, ticket: Ticket) -> None: ...
 
     def load_tickets(self) -> list[Ticket]: ...
+
+    def save_approval(self, approval: Approval) -> None: ...
+
+    def load_approvals(self) -> list[Approval]: ...
+
+    def finalize_approval(self, approval: Approval, ticket: Ticket | None = None) -> bool: ...
+
+    def save_audit_event(self, event: AuditEvent) -> None: ...
+
+    def load_audit_events(self, limit: int = 100) -> list[AuditEvent]: ...
+
+    def ping(self) -> bool: ...
+
+    def close(self) -> None: ...
 
 
 class SQLiteRepository:
@@ -40,7 +55,11 @@ class SQLiteRepository:
             check_same_thread=False,
         )
         self._connection.row_factory = sqlite3.Row
-        self._initialize()
+        try:
+            self._initialize()
+        except Exception:
+            self._connection.close()
+            raise
 
     def _initialize(self) -> None:
         with self._lock, self._connection:
@@ -81,6 +100,39 @@ class SQLiteRepository:
                     status TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS approvals (
+                    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                    approval_id TEXT NOT NULL UNIQUE,
+                    action_type TEXT NOT NULL,
+                    title TEXT NOT NULL,
+                    description TEXT NOT NULL,
+                    priority TEXT NOT NULL,
+                    requested_by TEXT NOT NULL,
+                    requested_at TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    resolved_by TEXT,
+                    resolved_at TEXT,
+                    ticket_id TEXT
+                );
+
+                CREATE TABLE IF NOT EXISTS audit_events (
+                    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_id TEXT NOT NULL UNIQUE,
+                    event_type TEXT NOT NULL,
+                    actor TEXT NOT NULL,
+                    resource_type TEXT NOT NULL,
+                    resource_id TEXT NOT NULL,
+                    details_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_approvals_status
+                ON approvals(status, expires_at);
+
+                CREATE INDEX IF NOT EXISTS idx_audit_events_created_at
+                ON audit_events(created_at);
                 """
             )
             if schema_version < SCHEMA_VERSION:
@@ -156,21 +208,24 @@ class SQLiteRepository:
 
     def save_ticket(self, ticket: Ticket) -> None:
         with self._lock, self._connection:
-            self._connection.execute(
-                """
-                INSERT INTO tickets (
-                    ticket_id, title, description, priority, status, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    ticket.id,
-                    ticket.title,
-                    ticket.description,
-                    ticket.priority,
-                    ticket.status,
-                    ticket.created_at,
-                ),
-            )
+            self._insert_ticket(ticket)
+
+    def _insert_ticket(self, ticket: Ticket) -> None:
+        self._connection.execute(
+            """
+            INSERT INTO tickets (
+                ticket_id, title, description, priority, status, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ticket.id,
+                ticket.title,
+                ticket.description,
+                ticket.priority,
+                ticket.status,
+                ticket.created_at,
+            ),
+        )
 
     def load_tickets(self) -> list[Ticket]:
         with self._lock:
@@ -192,6 +247,133 @@ class SQLiteRepository:
             )
             for row in rows
         ]
+
+    def save_approval(self, approval: Approval) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                """
+                INSERT INTO approvals (
+                    approval_id, action_type, title, description, priority,
+                    requested_by, requested_at, expires_at, status,
+                    resolved_by, resolved_at, ticket_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    approval.id,
+                    approval.action_type,
+                    approval.title,
+                    approval.description,
+                    approval.priority,
+                    approval.requested_by,
+                    approval.requested_at,
+                    approval.expires_at,
+                    approval.status,
+                    approval.resolved_by,
+                    approval.resolved_at,
+                    approval.ticket_id,
+                ),
+            )
+
+    def load_approvals(self) -> list[Approval]:
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT approval_id, action_type, title, description, priority,
+                       requested_by, requested_at, expires_at, status,
+                       resolved_by, resolved_at, ticket_id
+                FROM approvals
+                ORDER BY sequence
+                """
+            ).fetchall()
+        return [
+            Approval(
+                id=row["approval_id"],
+                action_type=row["action_type"],
+                title=row["title"],
+                description=row["description"],
+                priority=row["priority"],
+                requested_by=row["requested_by"],
+                requested_at=row["requested_at"],
+                expires_at=row["expires_at"],
+                status=row["status"],
+                resolved_by=row["resolved_by"],
+                resolved_at=row["resolved_at"],
+                ticket_id=row["ticket_id"],
+            )
+            for row in rows
+        ]
+
+    def finalize_approval(self, approval: Approval, ticket: Ticket | None = None) -> bool:
+        with self._lock, self._connection:
+            cursor = self._connection.execute(
+                """
+                UPDATE approvals
+                SET status = ?, resolved_by = ?, resolved_at = ?, ticket_id = ?
+                WHERE approval_id = ? AND status = 'pending'
+                """,
+                (
+                    approval.status,
+                    approval.resolved_by,
+                    approval.resolved_at,
+                    approval.ticket_id,
+                    approval.id,
+                ),
+            )
+            if cursor.rowcount != 1:
+                return False
+            if ticket is not None:
+                self._insert_ticket(ticket)
+            return True
+
+    def save_audit_event(self, event: AuditEvent) -> None:
+        with self._lock, self._connection:
+            self._connection.execute(
+                """
+                INSERT INTO audit_events (
+                    event_id, event_type, actor, resource_type,
+                    resource_id, details_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    event.id,
+                    event.event_type,
+                    event.actor,
+                    event.resource_type,
+                    event.resource_id,
+                    json.dumps(event.details, ensure_ascii=False, sort_keys=True),
+                    event.created_at,
+                ),
+            )
+
+    def load_audit_events(self, limit: int = 100) -> list[AuditEvent]:
+        limit = min(max(limit, 1), 1000)
+        with self._lock:
+            rows = self._connection.execute(
+                """
+                SELECT event_id, event_type, actor, resource_type,
+                       resource_id, details_json, created_at
+                FROM audit_events
+                ORDER BY sequence DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+        return [
+            AuditEvent(
+                id=row["event_id"],
+                event_type=row["event_type"],
+                actor=row["actor"],
+                resource_type=row["resource_type"],
+                resource_id=row["resource_id"],
+                details=json.loads(row["details_json"]),
+                created_at=row["created_at"],
+            )
+            for row in rows
+        ]
+
+    def ping(self) -> bool:
+        with self._lock:
+            return self._connection.execute("SELECT 1").fetchone()[0] == 1
 
     def close(self) -> None:
         with self._lock:

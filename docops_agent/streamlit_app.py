@@ -1,18 +1,30 @@
 from __future__ import annotations
 
 import os
+from secrets import compare_digest
 from typing import Any
 
 import requests
 import streamlit as st
 
 API_URL = os.getenv("DOCOPS_API_URL", "http://localhost:8000").rstrip("/")
+API_KEY = os.getenv("DOCOPS_API_KEY", "").strip()
+UI_PASSWORD = os.getenv("DOCOPS_UI_PASSWORD", "")
 JsonPayload = dict[str, Any] | list[dict[str, Any]]
 
 
 def _request_json(method: str, path: str, **kwargs: Any) -> JsonPayload | None:
+    headers = dict(kwargs.pop("headers", {}))
+    if API_KEY:
+        headers["X-API-Key"] = API_KEY
     try:
-        response = requests.request(method, f"{API_URL}{path}", timeout=60, **kwargs)
+        response = requests.request(
+            method,
+            f"{API_URL}{path}",
+            headers=headers,
+            timeout=60,
+            **kwargs,
+        )
     except requests.RequestException as exc:
         st.error(f"无法连接 DocOps API：{exc}")
         return None
@@ -61,10 +73,33 @@ def _render_result(result: dict[str, Any]) -> None:
 
 
 st.set_page_config(page_title="DocOps Agent", page_icon="📚", layout="wide")
+
+if UI_PASSWORD:
+    if len(UI_PASSWORD) < 16:
+        st.error("DOCOPS_UI_PASSWORD 必须至少包含 16 个字符。")
+        st.stop()
+    if not st.session_state.get("ui_authenticated", False):
+        st.title("DocOps Agent 登录")
+        with st.form("ui-login"):
+            supplied_password = st.text_input("访问口令", type="password")
+            submitted = st.form_submit_button("登录", use_container_width=True)
+        if submitted:
+            if compare_digest(supplied_password, UI_PASSWORD):
+                st.session_state["ui_authenticated"] = True
+                st.rerun()
+            else:
+                st.error("访问口令错误。")
+        st.stop()
+
 st.title("DocOps Agent")
 st.caption("可信企业知识问答 · 原文引用 · 无依据拒答 · 工单人工审批")
 
 with st.sidebar:
+    if UI_PASSWORD and st.button("退出登录", use_container_width=True):
+        st.session_state["ui_authenticated"] = False
+        st.rerun()
+    if UI_PASSWORD:
+        st.divider()
     st.subheader("添加企业文档")
     upload = st.file_uploader("支持 TXT / Markdown / CSV / 文本型 PDF")
     if upload and st.button("建立索引", use_container_width=True):
@@ -134,31 +169,32 @@ for entry in history:
         else:
             st.write(entry["content"])
 
-pending_message = st.session_state.get("pending_ticket_message")
-if pending_message:
+pending_approval = st.session_state.get("pending_approval")
+if pending_approval:
+    st.caption(f"审批将在 {pending_approval['expires_at']} 过期")
     approve_column, cancel_column = st.columns(2)
     if approve_column.button("确认创建工单", type="primary", use_container_width=True):
-        approved = _post_json(
-            "/agent/run",
-            json={"message": pending_message, "approved": True},
-        )
+        approved = _post_json(f"/approvals/{pending_approval['id']}/approve")
         if approved is not None:
             history.append({"role": "assistant", "result": approved})
-            st.session_state["pending_ticket_message"] = None
+            st.session_state["pending_approval"] = None
             st.rerun()
     if cancel_column.button("取消", use_container_width=True):
-        st.session_state["pending_ticket_message"] = None
-        st.rerun()
+        rejected = _post_json(f"/approvals/{pending_approval['id']}/reject")
+        if rejected is not None:
+            history.append({"role": "assistant", "result": rejected})
+            st.session_state["pending_approval"] = None
+            st.rerun()
 
 message = st.chat_input("询问制度，或输入“创建工单：……”")
 if message:
     history.append({"role": "user", "content": message})
     result = _post_json(
         "/agent/run",
-        json={"message": message, "approved": False},
+        json={"message": message},
     )
     if result is not None:
         history.append({"role": "assistant", "result": result})
         if result.get("requires_approval"):
-            st.session_state["pending_ticket_message"] = message
+            st.session_state["pending_approval"] = result["approval"]
         st.rerun()

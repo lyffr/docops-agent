@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docops-agent"
-version = "0.1.0"
+version = "0.2.0"
 description = "A trustworthy RAG and ticket automation agent with citations, abstention and human approval."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -39,4 +39,3 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
-
