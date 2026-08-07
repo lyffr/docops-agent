@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "docops-agent"
+version = "0.1.0"
+description = "A trustworthy RAG and ticket automation agent with citations, abstention and human approval."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "DocOps Agent contributors" }]
+dependencies = [
+  "fastapi>=0.115,<1.0",
+  "pydantic>=2.8,<3.0",
+  "python-multipart>=0.0.9",
+  "pypdf>=5.0,<7.0",
+  "requests>=2.32,<3.0",
+  "streamlit>=1.38,<2.0",
+  "uvicorn[standard]>=0.30,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0,<10.0",
+  "ruff>=0.6,<1.0",
+]
+
+[tool.setuptools.packages.find]
+include = ["docops_agent*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+

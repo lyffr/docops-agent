@@ -1,0 +1,9 @@
+{"question":"试用期员工有多少天带薪年假？","answer_keywords":["试用期","暂不享有"],"should_abstain":false,"expected_source":"demo-handbook"}
+{"question":"正式员工一年有几天年假？","answer_keywords":["十天"],"should_abstain":false,"expected_source":"demo-handbook"}
+{"question":"费用发生后最晚多久提交报销？","answer_keywords":["三十个自然日"],"should_abstain":false,"expected_source":"demo-handbook"}
+{"question":"一线城市住宿标准是多少？","answer_keywords":["六百元"],"should_abstain":false,"expected_source":"demo-handbook"}
+{"question":"电脑无法启动应该怎么办？","answer_keywords":["IT","工单"],"should_abstain":false,"expected_source":"demo-handbook"}
+{"question":"敏感数据能上传个人邮箱吗？","answer_keywords":["不得上传"],"should_abstain":false,"expected_source":"demo-handbook"}
+{"question":"公司食堂周五供应什么菜？","answer_keywords":[],"should_abstain":true,"expected_source":null}
+{"question":"公司创始人的生日是哪一天？","answer_keywords":[],"should_abstain":true,"expected_source":null}
+
