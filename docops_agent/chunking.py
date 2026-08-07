@@ -40,8 +40,11 @@ def split_text(text: str, max_chars: int = 520, overlap_chars: int = 80) -> list
             continue
 
         chunks.append(current)
-        overlap = current[-overlap_chars:] if overlap_chars else ""
-        current = f"{overlap}\n\n{paragraph}".strip()
+        separator_length = 2
+        available_overlap = max_chars - len(paragraph) - separator_length
+        overlap_length = min(overlap_chars, max(available_overlap, 0))
+        overlap = current[-overlap_length:] if overlap_length else ""
+        current = f"{overlap}\n\n{paragraph}".strip() if overlap else paragraph
 
     if current:
         chunks.append(current)
@@ -69,4 +72,3 @@ def chunk_sections(
                 )
             )
     return chunks
-

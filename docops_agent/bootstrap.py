@@ -37,4 +37,3 @@ def build_agent(settings: Settings | None = None) -> tuple[DocOpsAgent, Knowledg
         min_evidence_score=settings.min_evidence_score,
     )
     return DocOpsAgent(rag, TicketStore()), knowledge_base
-

@@ -13,12 +13,19 @@ class RAGService:
         top_k: int = 4,
         min_evidence_score: float = 0.08,
     ) -> None:
+        if top_k <= 0:
+            raise ValueError("top_k must be greater than zero")
+        if not 0 <= min_evidence_score <= 1:
+            raise ValueError("min_evidence_score must be between 0 and 1")
         self.knowledge_base = knowledge_base
-        self.generator = generator or ExtractiveGenerator()
+        self.generator = generator if generator is not None else ExtractiveGenerator()
         self.top_k = top_k
         self.min_evidence_score = min_evidence_score
 
     def answer(self, question: str) -> Answer:
+        question = question.strip()
+        if not question:
+            raise ValueError("question cannot be empty")
         hits = self.knowledge_base.retriever.search(question, top_k=self.top_k)
         if not hits or hits[0].score < self.min_evidence_score:
             return Answer(
@@ -47,4 +54,3 @@ class RAGService:
             confidence=round(hits[0].score, 4),
             abstained=False,
         )
-

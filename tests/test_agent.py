@@ -20,7 +20,10 @@ class AgentTests(unittest.TestCase):
         self.assertIsNotNone(result.ticket)
         self.assertEqual(len(self.agent.tickets.list()), 1)
 
+    def test_empty_message_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "message cannot be empty"):
+            self.agent.run("   ")
+
 
 if __name__ == "__main__":
     unittest.main()
-

@@ -33,11 +33,14 @@ def parse_document(filename: str, data: bytes) -> list[ParsedSection]:
             from pypdf import PdfReader
         except ImportError as exc:
             raise RuntimeError("解析 PDF 需要安装 pypdf。") from exc
-        reader = PdfReader(BytesIO(data))
-        return [
-            ParsedSection(text=page.extract_text() or "", page=index)
-            for index, page in enumerate(reader.pages, start=1)
-            if (page.extract_text() or "").strip()
-        ]
+        try:
+            reader = PdfReader(BytesIO(data))
+            sections: list[ParsedSection] = []
+            for index, page in enumerate(reader.pages, start=1):
+                text = page.extract_text() or ""
+                if text.strip():
+                    sections.append(ParsedSection(text=text, page=index))
+            return sections
+        except Exception as exc:
+            raise ValueError("无法解析 PDF，请确认文件未损坏且包含可提取文本。") from exc
     raise UnsupportedDocumentError("当前支持 .txt、.md、.csv 和文本型 .pdf 文件。")
-

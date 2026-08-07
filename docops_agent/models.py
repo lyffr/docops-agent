@@ -78,4 +78,3 @@ class AgentResult:
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
         return payload
-

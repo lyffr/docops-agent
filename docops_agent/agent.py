@@ -18,7 +18,7 @@ CREATE_TICKET_PATTERNS = (
 class DocOpsAgent:
     def __init__(self, rag: RAGService, tickets: TicketStore | None = None) -> None:
         self.rag = rag
-        self.tickets = tickets or TicketStore()
+        self.tickets = tickets if tickets is not None else TicketStore()
 
     @staticmethod
     def _is_ticket_request(message: str) -> bool:
@@ -34,6 +34,9 @@ class DocOpsAgent:
         return cleaned[:48] or "用户提交的支持请求"
 
     def run(self, message: str, approved: bool = False) -> AgentResult:
+        message = message.strip()
+        if not message:
+            raise ValueError("message cannot be empty")
         if self._is_ticket_request(message):
             title = self._ticket_title(message)
             if not approved:
@@ -51,4 +54,3 @@ class DocOpsAgent:
 
         answer = self.rag.answer(message)
         return AgentResult(kind="answer", message=answer.content, answer=answer)
-
