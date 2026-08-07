@@ -111,15 +111,6 @@ tests/                # 单元测试
 
 更完整的系统图和演进方案见 [docs/architecture.md](docs/architecture.md)。
 
-## 建议的校招升级路线
-
-1. 用 BGE-M3/E5 等嵌入模型替换字符相似度，报告 Recall@5 变化。
-2. 加入 Cross-Encoder Reranker，做检索阶段消融实验。
-3. 增加扫描 PDF、表格和图片解析，建立多模态评测子集。
-4. 收集错误案例进行 LoRA/SFT，再比较正确率和拒答率。
-5. 加入 OpenTelemetry、延迟/Token 成本和失败类型看板。
-
-简历中只写真实完成并能解释的模块，实验结果使用仓库中可以复现的数据。
 
 ## License
 
