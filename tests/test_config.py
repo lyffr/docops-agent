@@ -18,6 +18,8 @@ class SettingsTests(unittest.TestCase):
             Settings(min_evidence_score=1.1)
         with self.assertRaisesRegex(ValueError, "DOCOPS_MAX_UPLOAD_BYTES"):
             Settings(max_upload_bytes=0)
+        with self.assertRaisesRegex(ValueError, "DOCOPS_DATABASE_PATH"):
+            Settings(database_path="   ")
 
 
 if __name__ == "__main__":

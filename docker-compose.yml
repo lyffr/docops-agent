@@ -6,6 +6,10 @@ services:
     env_file:
       - path: .env
         required: false
+    environment:
+      DOCOPS_DATABASE_PATH: /state/docops.db
+    volumes:
+      - docops-state:/state
 
   ui:
     build: .
@@ -17,3 +21,5 @@ services:
     depends_on:
       - api
 
+volumes:
+  docops-state:

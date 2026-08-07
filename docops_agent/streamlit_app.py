@@ -7,11 +7,12 @@ import requests
 import streamlit as st
 
 API_URL = os.getenv("DOCOPS_API_URL", "http://localhost:8000").rstrip("/")
+JsonPayload = dict[str, Any] | list[dict[str, Any]]
 
 
-def _post_json(path: str, **kwargs: Any) -> dict[str, Any] | None:
+def _request_json(method: str, path: str, **kwargs: Any) -> JsonPayload | None:
     try:
-        response = requests.post(f"{API_URL}{path}", timeout=60, **kwargs)
+        response = requests.request(method, f"{API_URL}{path}", timeout=60, **kwargs)
     except requests.RequestException as exc:
         st.error(f"无法连接 DocOps API：{exc}")
         return None
@@ -24,10 +25,24 @@ def _post_json(path: str, **kwargs: Any) -> dict[str, Any] | None:
         detail = payload.get("detail") if isinstance(payload, dict) else response.text
         st.error(f"请求失败（{response.status_code}）：{detail or '未知错误'}")
         return None
-    if not isinstance(payload, dict):
+    if not isinstance(payload, (dict, list)):
         st.error("DocOps API 返回了无法识别的响应。")
         return None
     return payload
+
+
+def _post_json(path: str, **kwargs: Any) -> dict[str, Any] | None:
+    payload = _request_json("POST", path, **kwargs)
+    if payload is not None and not isinstance(payload, dict):
+        st.error("DocOps API 返回了类型错误的响应。")
+        return None
+    return payload
+
+
+def _load_documents() -> None:
+    payload = _request_json("GET", "/documents")
+    if isinstance(payload, list):
+        st.session_state["documents"] = payload
 
 
 def _render_answer(answer: dict[str, Any]) -> None:
@@ -59,6 +74,51 @@ with st.sidebar:
         )
         if result is not None:
             st.success(f"已建立 {result['chunks']} 个文本块")
+            _load_documents()
+
+    st.divider()
+    st.subheader("文档管理")
+    if st.button("刷新文档列表", use_container_width=True):
+        _load_documents()
+    for document in st.session_state.get("documents", []):
+        st.markdown(f"**{document['title']}**")
+        st.caption(
+            f"ID: {document['document_id']} · {document['chunks']} 块 · {document['pages']} 页"
+        )
+        reindex_column, delete_column = st.columns(2)
+        if reindex_column.button(
+            "重新索引",
+            key=f"reindex-{document['document_id']}",
+            use_container_width=True,
+        ):
+            result = _post_json(f"/documents/{document['document_id']}/reindex")
+            if result is not None:
+                st.success(f"已重新建立 {result['chunks']} 个文本块")
+                _load_documents()
+        if delete_column.button(
+            "删除",
+            key=f"delete-{document['document_id']}",
+            use_container_width=True,
+        ):
+            st.session_state["pending_delete_document"] = document
+            st.rerun()
+
+    pending_delete = st.session_state.get("pending_delete_document")
+    if pending_delete:
+        st.warning(f"确认删除“{pending_delete['title']}”？该操作会删除持久化原文和索引。")
+        confirm_column, cancel_column = st.columns(2)
+        if confirm_column.button("确认删除", type="primary", use_container_width=True):
+            result = _request_json(
+                "DELETE",
+                f"/documents/{pending_delete['document_id']}",
+            )
+            if result is not None:
+                st.session_state["pending_delete_document"] = None
+                _load_documents()
+                st.rerun()
+        if cancel_column.button("取消删除", use_container_width=True):
+            st.session_state["pending_delete_document"] = None
+            st.rerun()
 
     st.divider()
     st.markdown("**演示问题**")

@@ -13,6 +13,29 @@ class ParsedSection:
 
 
 @dataclass(slots=True)
+class DocumentRecord:
+    document_id: str
+    title: str
+    sections: list[ParsedSection]
+    created_at: str
+    updated_at: str
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentSummary:
+    document_id: str
+    title: str
+    sections: int
+    chunks: int
+    pages: int
+    created_at: str
+    updated_at: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass(slots=True)
 class DocumentChunk:
     id: str
     document_id: str

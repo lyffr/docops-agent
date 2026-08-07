@@ -15,6 +15,7 @@ class Settings:
     top_k: int = 4
     min_evidence_score: float = 0.08
     max_upload_bytes: int = 10 * 1024 * 1024
+    database_path: str = "data/docops.db"
 
     def __post_init__(self) -> None:
         provider = self.llm_provider.strip().lower()
@@ -28,6 +29,10 @@ class Settings:
             raise ValueError("DOCOPS_MIN_EVIDENCE_SCORE must be between 0 and 1")
         if self.max_upload_bytes <= 0:
             raise ValueError("DOCOPS_MAX_UPLOAD_BYTES must be greater than zero")
+        database_path = self.database_path.strip()
+        if not database_path:
+            raise ValueError("DOCOPS_DATABASE_PATH cannot be empty")
+        object.__setattr__(self, "database_path", database_path)
 
     @classmethod
     def from_env(cls) -> Settings:
@@ -39,4 +44,5 @@ class Settings:
             top_k=int(os.getenv("DOCOPS_TOP_K", "4")),
             min_evidence_score=float(os.getenv("DOCOPS_MIN_EVIDENCE_SCORE", "0.08")),
             max_upload_bytes=int(os.getenv("DOCOPS_MAX_UPLOAD_BYTES", str(10 * 1024 * 1024))),
+            database_path=os.getenv("DOCOPS_DATABASE_PATH", "data/docops.db"),
         )

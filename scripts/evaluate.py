@@ -10,10 +10,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from docops_agent.bootstrap import build_agent  # noqa: E402
+from docops_agent.config import Settings  # noqa: E402
 
 
 def evaluate(dataset_path: Path) -> dict[str, float | int]:
-    agent, _ = build_agent()
+    agent, _ = build_agent(Settings(database_path=":memory:"))
     lines = dataset_path.read_text(encoding="utf-8").splitlines()
     examples = [json.loads(line) for line in lines if line]
     keyword_correct = 0

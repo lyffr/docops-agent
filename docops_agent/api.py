@@ -21,7 +21,15 @@ app = FastAPI(
 settings = Settings.from_env()
 agent, knowledge_base = build_agent(settings)
 
-DocumentId = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=80)]
+DocumentId = Annotated[
+    str,
+    StringConstraints(
+        strip_whitespace=True,
+        min_length=1,
+        max_length=80,
+        pattern=r"^[a-zA-Z0-9_-]+$",
+    ),
+]
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=120)]
 UserInput = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)]
 
@@ -62,8 +70,12 @@ def _validate_document_size(data: bytes) -> None:
 
 @app.get("/health")
 def health() -> dict[str, object]:
-    document_count = len({chunk.document_id for chunk in knowledge_base.chunks})
-    return {"status": "ok", "documents": document_count}
+    return {"status": "ok", "documents": len(knowledge_base.documents)}
+
+
+@app.get("/documents")
+def list_documents() -> list[dict[str, object]]:
+    return [document.to_dict() for document in knowledge_base.documents]
 
 
 @app.post("/documents/text")
@@ -93,6 +105,21 @@ async def upload_document(file: UploadFile = File(...)) -> dict[str, object]:
         chunks = knowledge_base.add_document(document_id, filename, sections)
     except (UnsupportedDocumentError, ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"document_id": document_id, "chunks": len(chunks)}
+
+
+@app.delete("/documents/{document_id}")
+def delete_document(document_id: DocumentId) -> dict[str, object]:
+    if not knowledge_base.delete_document(document_id):
+        raise HTTPException(status_code=404, detail="文档不存在。")
+    return {"document_id": document_id, "deleted": True}
+
+
+@app.post("/documents/{document_id}/reindex")
+def reindex_document(document_id: DocumentId) -> dict[str, object]:
+    chunks = knowledge_base.reindex_document(document_id)
+    if chunks is None:
+        raise HTTPException(status_code=404, detail="文档不存在。")
     return {"document_id": document_id, "chunks": len(chunks)}
 
 

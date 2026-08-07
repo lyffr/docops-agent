@@ -6,15 +6,17 @@ from .agent import DocOpsAgent
 from .config import Settings
 from .generation import ExtractiveGenerator, OpenAICompatibleGenerator
 from .models import ParsedSection
+from .persistence import SQLiteRepository
 from .rag import RAGService
 from .store import KnowledgeBase, TicketStore
 
 
 def build_agent(settings: Settings | None = None) -> tuple[DocOpsAgent, KnowledgeBase]:
-    settings = settings or Settings.from_env()
-    knowledge_base = KnowledgeBase()
+    settings = settings if settings is not None else Settings.from_env()
+    repository = SQLiteRepository(settings.database_path)
+    knowledge_base = KnowledgeBase(repository=repository)
     demo_path = Path(__file__).resolve().parent.parent / "data" / "demo_manual.md"
-    if demo_path.exists():
+    if demo_path.exists() and not knowledge_base.has_document("demo-handbook"):
         knowledge_base.add_document(
             document_id="demo-handbook",
             title="星云科技员工服务手册（演示）",
@@ -36,4 +38,4 @@ def build_agent(settings: Settings | None = None) -> tuple[DocOpsAgent, Knowledg
         top_k=settings.top_k,
         min_evidence_score=settings.min_evidence_score,
     )
-    return DocOpsAgent(rag, TicketStore()), knowledge_base
+    return DocOpsAgent(rag, TicketStore(repository)), knowledge_base

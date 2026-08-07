@@ -14,4 +14,6 @@ build/
 .vscode/
 .DS_Store
 data/uploads/
-
+data/*.db
+data/*.db-shm
+data/*.db-wal

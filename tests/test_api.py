@@ -4,7 +4,13 @@ from unittest.mock import patch
 
 from fastapi import HTTPException
 
-from docops_agent.api import QueryRequest, _document_id, _safe_filename, _validate_document_size
+from docops_agent.api import (
+    QueryRequest,
+    TextDocumentRequest,
+    _document_id,
+    _safe_filename,
+    _validate_document_size,
+)
 
 
 class ApiHelpersTests(unittest.TestCase):
@@ -25,6 +31,13 @@ class ApiHelpersTests(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             QueryRequest(question="   ")
+
+    def test_document_ids_are_safe_for_url_paths(self) -> None:
+        request = TextDocumentRequest(document_id="policy_2026", title="制度", text="正文")
+        self.assertEqual(request.document_id, "policy_2026")
+
+        with self.assertRaises(ValueError):
+            TextDocumentRequest(document_id="部门/制度", title="制度", text="正文")
 
     def test_document_size_limit_is_enforced(self) -> None:
         with patch("docops_agent.api.settings", SimpleNamespace(max_upload_bytes=3)):
