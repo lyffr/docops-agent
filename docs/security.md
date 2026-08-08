@@ -1,6 +1,6 @@
 # Security Model
 
-DocOps Agent 0.2 is suitable for a small, single-host deployment when placed behind HTTPS and a
+DocOps Agent 0.3 is suitable for a small, single-host deployment when placed behind HTTPS and a
 rate-limiting reverse proxy. This document distinguishes implemented controls from deployment
 responsibilities and known limitations.
 

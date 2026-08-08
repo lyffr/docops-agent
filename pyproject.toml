@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "docops-agent"
-version = "0.2.0"
+version = "0.3.0"
 description = "A trustworthy RAG and ticket automation agent with citations, abstention and human approval."
 readme = "README.md"
 requires-python = ">=3.10"
@@ -24,6 +24,9 @@ dependencies = [
 dev = [
   "pytest>=8.0,<10.0",
   "ruff>=0.6,<1.0",
+]
+desktop = [
+  "pyinstaller>=6.0,<7.0",
 ]
 
 [tool.setuptools.packages.find]

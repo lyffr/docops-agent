@@ -1,6 +1,6 @@
 # Deployment Guide
 
-This guide deploys DocOps Agent 0.2 on one Linux host with Docker Compose. The API uses
+This guide deploys DocOps Agent 0.3 on one Linux host with Docker Compose. The API uses
 SQLite and intentionally runs as a single worker. Use a PostgreSQL repository before running
 multiple API replicas.
 

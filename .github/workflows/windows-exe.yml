@@ -1,0 +1,60 @@
+name: Windows Executable
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-build.lock
+
+      - name: Install build dependencies
+        run: python -m pip install --requirement requirements-build.lock
+
+      - name: Test and lint
+        shell: pwsh
+        run: |
+          python -m unittest discover -s tests -v
+          python -m ruff check .
+          python -m ruff format --check .
+
+      - name: Build executable
+        run: python -m PyInstaller --noconfirm --clean packaging\DocOpsAgent.spec
+
+      - name: Smoke test executable
+        shell: pwsh
+        run: |
+          $env:DOCOPS_DESKTOP_HOME = Join-Path $env:RUNNER_TEMP "docops-agent-smoke"
+          $process = Start-Process `
+            -FilePath (Resolve-Path "dist\DocOpsAgent.exe") `
+            -ArgumentList "--smoke-test" `
+            -WindowStyle Hidden `
+            -Wait `
+            -PassThru
+          if ($process.ExitCode -ne 0) {
+            Get-Content "$env:DOCOPS_DESKTOP_HOME\logs\api.log" -ErrorAction SilentlyContinue
+            Get-Content "$env:DOCOPS_DESKTOP_HOME\logs\ui.log" -ErrorAction SilentlyContinue
+            exit $process.ExitCode
+          }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DocOpsAgent-windows-x64
+          path: dist/DocOpsAgent.exe
+          if-no-files-found: error
+          retention-days: 14

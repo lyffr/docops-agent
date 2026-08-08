@@ -48,6 +48,25 @@ docker compose up --build
 
 实际部署前请阅读[部署指南](docs/deployment.md)，不要把开发配置直接暴露到公网。
 
+## Windows EXE
+
+Windows 10/11 用户可以直接运行单文件桌面版本。成品位于：
+
+```text
+dist\DocOpsAgent.exe
+```
+
+双击后程序会在本机启动 API 和 Streamlit UI，并自动打开浏览器；关闭控制对话框会同时
+停止两个服务。数据库、配置和日志保存在 `%LOCALAPPDATA%\DocOpsAgent`，不会写入临时解包目录。
+
+从源码重新构建：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\build_windows.ps1
+```
+
+详细使用、模型配置、自动构建和签名注意事项见 [Windows EXE 指南](docs/windows-executable.md)。
+
 ## 演示
 
 服务启动时会自动加载一份虚构的员工手册，可以直接提问：
@@ -116,6 +135,7 @@ docops_agent/
 ├── agent.py          # 意图路由与人工审批
 ├── api.py            # FastAPI 接口
 ├── chunking.py       # 分页文本切块
+├── desktop.py        # Windows 单文件桌面启动器
 ├── generation.py     # 离线/大模型生成器
 ├── observability.py  # JSON 日志、请求 ID 与安全响应头
 ├── parsers.py        # TXT、CSV、PDF 解析
@@ -128,6 +148,8 @@ docops_agent/
 data/                 # 演示文档与评测集
 deploy/               # 反向代理配置示例
 docs/                 # 架构、部署、安全、API 与运维文档
+packaging/            # PyInstaller 单文件打包规格
+requirements-build.lock # Windows EXE 固定版本构建依赖
 requirements.lock     # 容器使用的固定版本运行时依赖
 requirements-dev.lock # CI 使用的固定版本开发依赖
 scripts/              # 离线评测
@@ -142,6 +164,7 @@ tests/                # 单元测试
 - [API 指南](docs/api.md)
 - [安全模型](docs/security.md)
 - [运维手册](docs/operations.md)
+- [Windows EXE 指南](docs/windows-executable.md)
 
 ## 后续升级路线
 
